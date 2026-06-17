@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """Clone a service's K8s secret into a new environment with env-specific overrides.
 
-Clones <src-secret> (e.g. <svc>-secret-dev) into <dst-secret> in the target
+Clones {src-secret} (e.g. {svc}-secret-dev) into {dst-secret} in the target
 namespace/cluster, overriding only env-specific keys. Secret values are never
 printed. Pass DB overrides only if the service uses a database.
 
 Usage:
   make-env-secret.py \
-    --src-ctx <kctx> --src-ns dev-saras --src-secret <svc>-secret-dev \
-    --dst-ctx <kctx> --dst-ns test-saras --dst-secret <svc>-secret-test \
-    --base-url https://test-<svc>.sarasanalytics.com \
+    --src-ctx {kctx} --src-ns dev-saras --src-secret {svc}-secret-dev \
+    --dst-ctx {kctx} --dst-ns test-saras --dst-secret {svc}-secret-test \
+    --base-url https://test-{svc}.sarasanalytics.com \
     --active false \                     # active/passive flag value (key via --active-key)
     --active-key CLICKUP_WEBHOOK_ENABLED \
-    [--db-name <svc>_test --db-user <svc> --db-password <pw>]   # if DB
+    [--db-name {svc}_test --db-user {svc} --db-password {pw}]   # if DB
 
 Tip: generate the DB password upstream and pass it here so it never hits a shell
 history or chat; this script puts it only into the K8s secret.

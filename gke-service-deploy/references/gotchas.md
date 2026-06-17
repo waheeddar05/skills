@@ -9,7 +9,7 @@ Things that will silently break a deploy. Each cost real debugging time.
    RoleBinding that an existing project has. Symptom: Warehouse `DiscoveryFailure`
    = `secrets is forbidden: User "system:serviceaccount:kargo:kargo-controller"
    cannot list resource "secrets"`. Fix:
-   `kubectl create rolebinding kargo-controller-read-secrets -n <project> --clusterrole=kargo-controller-read-secrets --serviceaccount=kargo:kargo-controller`.
+   `kubectl create rolebinding kargo-controller-read-secrets -n {project} --clusterrole=kargo-controller-read-secrets --serviceaccount=kargo:kargo-controller`.
    Then — and this is the part that's easy to miss — the controller's cached
    informer won't pick up the new permission until you
    `kubectl -n kargo rollout restart deploy/kargo-controller`. After that,
@@ -42,12 +42,12 @@ Things that will silently break a deploy. Each cost real debugging time.
    every table and copy all rows, then fail on the final `ALTER DEFAULT
    PRIVILEGES` ("permission denied to change default privileges") and **roll the
    whole import back** — leaving the DB empty despite a "DONE" op. Fix: run the
-   import as the object owner, `gcloud sql import sql … --user=<svc>`. The owner
+   import as the object owner, `gcloud sql import sql … --user={svc}`. The owner
    can set its own default privileges, so the import commits.
 
 7. **Recreate the target DB empty before importing** (scale the consumer to 0
    first; ArgoCD `selfHeal` will fight a `kubectl scale`, so temporarily
-   `kubectl patch application <app> -n argocd --type merge -p '{"spec":{"syncPolicy":{"automated":null}}}'`,
+   `kubectl patch application {app} -n argocd --type merge -p '{"spec":{"syncPolicy":{"automated":null}}}'`,
    scale to 0, import, then restore the syncPolicy). A dump from `gcloud sql
    export` has no `--clean`, so importing onto an existing schema errors.
 
@@ -64,10 +64,10 @@ Things that will silently break a deploy. Each cost real debugging time.
    loader, and the extension may be bound to a *different* Chrome profile that
    isn't logged in). Don't fight it. Instead drive the **API** from the user's
    logged-in session:
-   - `POST https://dash.cloudflare.com/api/v4/zones/<zoneId>/dns_records` with a
+   - `POST https://dash.cloudflare.com/api/v4/zones/{zoneId}/dns_records` with a
      synchronous same-origin `XMLHttpRequest` and the header
      **`X-Cross-Site-Security: dash`** (without it you get a 403 WAF challenge).
-   - Body: `{type:"A", name:"<host-label>", content:"<LB IP>", ttl:1, proxied:false}`.
+   - Body: `{type:"A", name:"{host-label}", content:"{LB IP}", ttl:1, proxied:false}`.
    - If a request returns `9300 "User session has expired"`, the user must
      re-log-in to `dash.cloudflare.com` (this is separate from any Google login).
    - The DNS A target is the env's public LB IP (see infra.md), not the in-cluster
@@ -82,7 +82,7 @@ Things that will silently break a deploy. Each cost real debugging time.
     (e.g. `coding, software development`), apply manifests from a comma-free dir.
 
 12. **OAuth `redirect_uri_mismatch`** on the dashboard login means the env host's
-    `https://<host>/auth/google/callback` isn't on the OAuth client's authorized
+    `https://{host}/auth/google/callback` isn't on the OAuth client's authorized
     redirect URIs. That's a security setting — have the user add it; don't edit
     OAuth/IAM config yourself.
 

@@ -25,5 +25,5 @@ spec:
     syncOptions:
       - CreateNamespace=true
 # After Kargo is wired, authorize the matching stage to update this app:
-#   kubectl --context <argocd> annotate application {SVC}-{ENV} -n argocd \
+#   kubectl --context {argocd} annotate application {SVC}-{ENV} -n argocd \
 #     kargo.akuity.io/authorized-stage={SVC}:{ENV} --overwrite

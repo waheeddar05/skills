@@ -22,9 +22,9 @@ ArgoCD `Application`s live on the **argocd** cluster (namespace `argocd`); their
 
 | Env | Namespace | ArgoCD project | Cloud SQL instance | Host convention | DNS A target |
 |-----|-----------|----------------|--------------------|-----------------|--------------|
-| dev | `dev-saras` | `dev-daton` | `daton-210514:us-central1:saras-dev-test-rw-3` | `dev-<svc>.sarasanalytics.com` | `34.120.254.30` |
-| test/QA | `test-saras` | `test-daton` | `daton-210514:us-central1:saras-dev-test-rw-3` | `test-<svc>.sarasanalytics.com` | `34.120.254.30` |
-| prod | `saras` | `prod` | `daton-210514:us-central1:saras-prod-subscriptions-1` (or the service's own prod instance) | `<svc>.sarasanalytics.com` (no prefix) | `34.111.60.117` |
+| dev | `dev-saras` | `dev-daton` | `daton-210514:us-central1:saras-dev-test-rw-3` | `dev-{svc}.sarasanalytics.com` | `34.120.254.30` |
+| test/QA | `test-saras` | `test-daton` | `daton-210514:us-central1:saras-dev-test-rw-3` | `test-{svc}.sarasanalytics.com` | `34.120.254.30` |
+| prod | `saras` | `prod` | `daton-210514:us-central1:saras-prod-subscriptions-1` (or the service's own prod instance) | `{svc}.sarasanalytics.com` (no prefix) | `34.111.60.117` |
 
 > **Env-naming footgun:** code branches are `main`, `dev`, `qa`, `prod`, but the
 > `qa` branch builds the **test** environment. Apps, values files, namespaces,
@@ -33,15 +33,15 @@ ArgoCD `Application`s live on the **argocd** cluster (namespace `argocd`); their
 The DNS A target is the **public GCP load-balancer** IP that fronts Traefik —
 **not** the `ADDRESS` shown on the in-cluster ingress (that's Traefik's internal
 service IP). Confirm by digging an existing host in the same env, e.g.
-`dig +short test-<existing>.sarasanalytics.com` or
+`dig +short test-{existing}.sarasanalytics.com` or
 `dig +short cstudio.sarasanalytics.com` (prod).
 
 ## Container images (build-once)
 
-Registry pattern: `us-central1-docker.pkg.dev/daton-210514/<svc>/<svc>-dev:<github.run_id>`.
+Registry pattern: `us-central1-docker.pkg.dev/daton-210514/{svc}/{svc}-dev:{github.run_id}`.
 Despite the `-dev` suffix in the repo name, the **same image** is promoted to
 test and prod — that's the build-once artifact. Create the AR repo if missing:
-`gcloud artifacts repositories create <svc> --repository-format=docker --location=us-central1 --project=daton-210514`.
+`gcloud artifacts repositories create {svc} --repository-format=docker --location=us-central1 --project=daton-210514`.
 Build `--platform linux/amd64` (GKE nodes are amd64).
 
 `imagePullSecrets: [{name: gcr-image-pull}]` — this secret already exists in
@@ -58,13 +58,13 @@ Build `--platform linux/amd64` (GKE nodes are amd64).
   `daton-cloud-sql@daton-210514.iam.gserviceaccount.com` (same on dev-test and
   prod), which has Cloud SQL Client across the project — so a pod can reach any
   instance in `daton-210514`.
-- `DATABASE_URL` is `postgresql://<svc>:<password>@127.0.0.1:5432/<db>` (host is
+- `DATABASE_URL` is `postgresql://{svc}:{password}@127.0.0.1:5432/{db}` (host is
   localhost via the proxy; the *instance* is set in values, not the URL).
 
 ## Ingress / DNS
 
 - Ingress class `traefik`, behind a GCP global LB, wildcard cert
-  `*.sarasanalytics.com` (so any `<host>.sarasanalytics.com` is TLS-covered).
+  `*.sarasanalytics.com` (so any `{host}.sarasanalytics.com` is TLS-covered).
 - DNS is **Cloudflare**, zone `sarasanalytics.com` (zone id
   `c5ab6ed2696edd818e576fb613ba18d6`), authoritative NS `amos.ns.cloudflare.com`
   / `kiki.ns.cloudflare.com`. Records are **DNS-only** (grey cloud) — they point

@@ -6,9 +6,9 @@ description: >-
   pattern. Use this whenever the user wants to deploy, ship, stand up, onboard,
   or roll out a service/repo to the Saras GKE infra, set up its CI/CD, add it to
   ArgoCD or Kargo, create per-env Cloud SQL databases for it, or promote a build
-  dev→test→prod — e.g. "deploy https://github.com/sarasanalytics-com/<svc> to
-  dev", "stand up <svc> on test/QA", "ship this service to prod", "promote the
-  latest build to test", "add a Kargo stage for <svc>". Pass a GitHub repo URL
+  dev→test→prod — e.g. "deploy https://github.com/sarasanalytics-com/{svc} to
+  dev", "stand up {svc} on test/QA", "ship this service to prod", "promote the
+  latest build to test", "add a Kargo stage for {svc}". Pass a GitHub repo URL
   and it deploys (or promotes) the service. Also trigger on mentions of
   build-once image promotion, autoship/saras-ai-gateway-style deployment, the
   argo-deployment branch, dev-saras/test-saras/saras namespaces, or the
@@ -30,9 +30,9 @@ load-bearing, not optional reading.
 
 ## Inputs
 
-- **GitHub repo URL** (required) — e.g. `https://github.com/sarasanalytics-com/<svc>`.
+- **GitHub repo URL** (required) — e.g. `https://github.com/sarasanalytics-com/{svc}`.
 - **Target env(s)** (optional) — `dev`, `test`, `prod`. Default: **dev first**, then promote. Never stand all three up in one shot (see Safety).
-- **Service name** (optional) — defaults to the repo name. Becomes the ArgoCD app prefix (`<svc>-dev`), namespace member, image repo, and host.
+- **Service name** (optional) — defaults to the repo name. Becomes the ArgoCD app prefix (`{svc}-dev`), namespace member, image repo, and host.
 - **Needs a database?** (optional) — many services do; detect from `.env.example`/code.
 - **Has live side effects?** (optional) — if the service processes webhooks, runs schedulers, opens PRs, sends messages, etc., it needs the **active/passive toggle** (see below) so two environments don't both fire.
 
@@ -48,8 +48,8 @@ load-bearing, not optional reading.
 ### 1. Inspect the repo (decide the shape before touching infra)
 
 Clone/read the repo and answer:
-- **How is it built?** Look at `.github/workflows/*.yml`. Most Saras services build on push to `dev` to a per-env image `…/<svc>/<svc>-dev:<github.run_id>` and `sed` the tag into `helm/dev-values.yaml` on the `argo-deployment` branch. That per-env image **is** your build-once artifact — reuse the exact tag/digest for test and prod; do not rebuild.
-- **Where's the chart?** Usually an **orphan `argo-deployment` branch** with `helm/{Chart.yaml,<env>-values.yaml,templates/}`. If only `dev-values.yaml` exists, you'll add `test-values.yaml` / `prod-values.yaml`.
+- **How is it built?** Look at `.github/workflows/*.yml`. Most Saras services build on push to `dev` to a per-env image `…/{svc}/{svc}-dev:{github.run_id}` and `sed` the tag into `helm/dev-values.yaml` on the `argo-deployment` branch. That per-env image **is** your build-once artifact — reuse the exact tag/digest for test and prod; do not rebuild.
+- **Where's the chart?** Usually an **orphan `argo-deployment` branch** with `helm/{Chart.yaml,{env}-values.yaml,templates/}`. If only `dev-values.yaml` exists, you'll add `test-values.yaml` / `prod-values.yaml`.
 - **Does it need a DB?** Check `.env.example` for `DATABASE_URL`/`DB_*` and a `cloudSqlProxy` block in the chart.
 - **Does it have side effects?** Webhooks, pollers, schedulers, agents that write to external systems → it needs an active/passive switch (see step below). If the app already has one (a config flag), reuse it; if not, that's a code change (PR to `dev`) before standing up a second live environment.
 
@@ -61,22 +61,22 @@ namespace, ArgoCD project, Cloud SQL instance, host, and DNS target from
 
 1. **Image** — reuse the build-once tag. Confirm it exists in Artifact Registry. Don't build a new image for test/prod.
 2. **Database** (if needed) — create an empty DB and a **BUILT_IN** user on the env's Cloud SQL instance:
-   `gcloud sql databases create <db> --instance=<instance>` and
-   `gcloud sql users create <svc> --instance=<instance> --password=<generated>`.
+   `gcloud sql databases create {db} --instance={instance}` and
+   `gcloud sql users create {svc} --instance={instance} --password={generated}`.
    BUILT_IN users are auto-granted `cloudsqlsuperuser`, so the app can bootstrap its own schema. (See gotchas for the IAM-vs-password and schema-permission details.)
 3. **Secret** — clone the dev secret and override only env-specific keys (DB URL/password/name, `BASE_URL`/`PUBLIC_BASE_URL` to the env host, and the active/passive flag → **false** for a new env). Use `scripts/make-env-secret.py` as a starting point; never print secret values.
-4. **Values** — write `helm/<env>-values.yaml` (template in `templates/values.yaml.tmpl`): image repo+tag, `cloudSqlProxy.instanceConnectionName` for the env instance, `ingress.host`, `secretRef`, and a pod-anti-affinity keyed to `<svc>-<env>`. Commit it to the `argo-deployment` branch (the existing `deploy-dev` flow only touches `dev-values.yaml`, so committing other env values doesn't collide).
-5. **ArgoCD app** — create `<svc>-<env>` (template in `templates/argocd-app.yaml.tmpl`): the env's `project`, destination `server`+`namespace`, source `path: helm` + `valueFiles: [<env>-values.yaml]` on `argo-deployment`, `syncPolicy.automated.selfHeal: true` + `CreateNamespace=true`. Apply to the **argocd** cluster.
+4. **Values** — write `helm/{env}-values.yaml` (template in `templates/values.yaml.tmpl`): image repo+tag, `cloudSqlProxy.instanceConnectionName` for the env instance, `ingress.host`, `secretRef`, and a pod-anti-affinity keyed to `{svc}-{env}`. Commit it to the `argo-deployment` branch (the existing `deploy-dev` flow only touches `dev-values.yaml`, so committing other env values doesn't collide).
+5. **ArgoCD app** — create `{svc}-{env}` (template in `templates/argocd-app.yaml.tmpl`): the env's `project`, destination `server`+`namespace`, source `path: helm` + `valueFiles: [{env}-values.yaml]` on `argo-deployment`, `syncPolicy.automated.selfHeal: true` + `CreateNamespace=true`. Apply to the **argocd** cluster.
 6. **Ingress** — the chart's ingress template creates it from `ingress.host`. Confirm it appears.
 7. **DNS** — add a Cloudflare A record for the host → the env's **public** DNS target (not the in-cluster Traefik IP). See gotchas for the exact targets and the API method (the dashboard SPA is unreliable under automation; use the token-authenticated API with the `X-Cross-Site-Security: dash` header in the user's logged-in session).
-8. **OAuth redirect** (if the app has Google/SSO login) — the env host needs `https://<host>/auth/google/callback` added to the OAuth client's authorized redirect URIs. **This is a security setting — have the user add it; don't modify it yourself.**
+8. **OAuth redirect** (if the app has Google/SSO login) — the env host needs `https://{host}/auth/google/callback` added to the OAuth client's authorized redirect URIs. **This is a security setting — have the user add it; don't modify it yourself.**
 
 ### 3. Wire Kargo promotion
 
 Set up (or extend) the service's Kargo Project so the build-once artifact
 promotes across envs. Templates in `templates/kargo.yaml.tmpl`. Key points:
 - **Warehouse** watches the image repo (numeric run-id tags → `allowTags: "^[0-9]+$"`, `imageSelectionStrategy: NewestBuild`, `strictSemvers: false`).
-- **Stages** promote the freight: each stage's promotion does git-clone → `yaml-update` the env values tag → git-commit → git-push → `argocd-update` the env app. Authorize each stage on its app with annotation `kargo.akuity.io/authorized-stage: <project>:<stage>`.
+- **Stages** promote the freight: each stage's promotion does git-clone → `yaml-update` the env values tag → git-commit → git-push → `argocd-update` the env app. Authorize each stage on its app with annotation `kargo.akuity.io/authorized-stage: {project}:{stage}`.
 - **Do NOT create a Kargo stage that writes `dev-values.yaml`** — the GitHub `deploy-dev` workflow already owns that file, and a dual writer is what broke the original pilot. Kargo manages test/prod values; dev stays on its workflow.
 - Order stages so prod sources from test (`sources.stages: [test]`) to enforce dev→test→prod.
 - Promotions are **manual** by default (no auto-promotion policy) so the user gates each move. Credentials + an RBAC/restart gotcha are covered in `references/gotchas.md`.

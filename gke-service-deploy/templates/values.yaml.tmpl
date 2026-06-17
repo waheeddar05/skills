@@ -1,0 +1,54 @@
+# helm/<ENV>-values.yaml  — commit to the service repo's `argo-deployment` branch.
+# Placeholders: {SVC} service name, {ENV} dev|test|prod, {TAG} build-once image tag,
+# {INSTANCE} Cloud SQL instanceConnectionName, {HOST} ingress host, {SECRET} secretRef.
+replicaCount: 1
+
+image:
+  repository: "us-central1-docker.pkg.dev/daton-210514/{SVC}/{SVC}-dev"
+  pullPolicy: Always
+  tag: "{TAG}"
+
+imagePullSecrets:
+  - name: gcr-image-pull
+
+# Omit this whole block if the service doesn't use a database.
+cloudSqlProxy:
+  enabled: true
+  image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.4
+  instanceConnectionName: {INSTANCE}   # e.g. daton-210514:us-central1:saras-dev-test-rw-3
+  port: 5432
+
+ingress:
+  enabled: true
+  className: traefik
+  host: {HOST}                          # dev-{SVC} / test-{SVC} / {SVC}.sarasanalytics.com
+  annotations: {}
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3457                       # match the app's listen port
+
+secretRef: {SECRET}                      # e.g. {SVC}-secret-{ENV}
+
+securityContext:
+  runAsUser: 1001
+  runAsGroup: 1001
+  fsGroup: 1001
+  runAsNonRoot: true
+
+resources:
+  requests: { memory: "512Mi", cpu: "250m" }
+  limits:   { memory: "4Gi",   cpu: "500m" }
+
+nodeSelector: {}
+tolerations: []
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: app.kubernetes.io/instance
+              operator: In
+              values: ["{SVC}-{ENV}"]
+        topologyKey: kubernetes.io/hostname

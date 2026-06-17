@@ -1,0 +1,29 @@
+# ArgoCD Application — apply to the ARGOCD cluster (namespace argocd).
+# {SVC} service, {ENV} dev|test|prod, {PROJECT} dev-daton|test-daton|prod,
+# {SERVER} dev-test https://34.72.110.156  | prod https://34.42.255.233,
+# {NAMESPACE} dev-saras|test-saras|saras.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {SVC}-{ENV}
+  namespace: argocd
+spec:
+  project: {PROJECT}
+  source:
+    repoURL: https://github.com/sarasanalytics-com/{SVC}.git
+    targetRevision: argo-deployment
+    path: helm
+    helm:
+      valueFiles:
+        - {ENV}-values.yaml
+  destination:
+    server: {SERVER}
+    namespace: {NAMESPACE}
+  syncPolicy:
+    automated:
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+# After Kargo is wired, authorize the matching stage to update this app:
+#   kubectl --context <argocd> annotate application {SVC}-{ENV} -n argocd \
+#     kargo.akuity.io/authorized-stage={SVC}:{ENV} --overwrite

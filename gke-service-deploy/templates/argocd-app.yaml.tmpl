@@ -24,6 +24,10 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-# After Kargo is wired, authorize the matching stage to update this app:
+# Auto-sync (above) IS the deploy engine: a commit that changes the image tag in
+# {ENV}-values.yaml on argo-deployment is applied automatically. To apply it
+# immediately instead of waiting for the next poll, nudge a hard refresh:
 #   kubectl --context {argocd} annotate application {SVC}-{ENV} -n argocd \
-#     kargo.akuity.io/authorized-stage={SVC}:{ENV} --overwrite
+#     argocd.argoproj.io/refresh=hard --overwrite
+# (No Kargo stage/authorized-stage annotation — promotion is direct; see
+#  references/promotion.md.)

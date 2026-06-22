@@ -70,7 +70,12 @@ Build `--platform linux/amd64` (GKE nodes are amd64).
   / `kiki.ns.cloudflare.com`. Records are **DNS-only** (grey cloud) — they point
   straight at the origin LB; do not proxy them.
 
-## Kargo
+## Kargo (build list only — promotion is direct; see promotion.md)
+
+> Kargo is still installed, but this skill **no longer uses Kargo Stages** for
+> promotion — they deadlock on repeat deploys (see gotchas.md), so deploys now go
+> direct (commit tag + ArgoCD auto-sync). A `Warehouse` may stay on purely as a
+> list of available build tags; everything below applies only to that optional use.
 
 Installed on the **argocd** cluster (namespace `kargo`), v1.10.x. Per-service
 `Project` = a namespace named after the project. Credentials live as labeled
